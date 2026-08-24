@@ -1,0 +1,3 @@
+sample,assembly,proteins_gff,proteins_faa,virify_gff,interproscan_tsv
+megaS121,/maps/projects/hansen_ol-AUDIT/scratch/NILU/metagenomes/BINNING/01_ANVIO_DBs/megaS121/megaS121_fixed.fa,,,,
+co728,/maps/projects/hansen_ol-AUDIT/scratch/NILU/metagenomes/BINNING/01_ANVIO_DBs/co728/co728_fixed.fa,,,,

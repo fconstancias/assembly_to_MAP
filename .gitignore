@@ -1,0 +1,14 @@
+# Nextflow run state and generated pipeline outputs (regenerable; not source)
+work/
+results/
+.nextflow/
+.nextflow.log
+.nextflow.log.*
+nohup_run*.log
+*_trace*.txt
+
+# Full upstream clone used only to build patches/ -- see patches/ instead
+map_pipeline_patched/
+
+# Local scratch, if any
+*.tmp
