@@ -1,16 +1,15 @@
 diff --git a/modules/ebi-metagenomics/pathofact2/integrator/resources/usr/bin/pathofact2_integrator.py b/modules/ebi-metagenomics/pathofact2/integrator/resources/usr/bin/pathofact2_integrator.py
-index 45e2798..b8c41eb 100755
+index 45e2798..d725c3c 100755
 --- a/modules/ebi-metagenomics/pathofact2/integrator/resources/usr/bin/pathofact2_integrator.py
 +++ b/modules/ebi-metagenomics/pathofact2/integrator/resources/usr/bin/pathofact2_integrator.py
-@@ -55,10 +55,20 @@ def _pred_support_has_data_rows(path: str) -> bool:
+@@ -55,10 +55,19 @@ def _pred_support_has_data_rows(path: str) -> bool:
  def _has_gff_record_9cols(path: str, max_lines: int = 200) -> bool:
      """
      Return True if at least one non-comment, non-empty line with exactly 9 tab-separated
 -    columns exists within the first `max_lines` lines.
 +    columns exists in the file.
 +
-+    PATCHED (local fix, upstream bug: EBI-Metagenomics/mobilome-annotation-pipeline#TBD):
-+    originally capped the scan to the first `max_lines` raw lines via
++    PATCHED (local fix): originally capped the scan to the first `max_lines` raw lines via
 +    `zip(range(max_lines), fh)`. GFF3 files here write one `##sequence-region` pragma per
 +    contig before any feature line, so any assembly with more than ~200 contigs (i.e.
 +    essentially every real metagenomic assembly) had its first feature line past that cap,

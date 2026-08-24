@@ -6,6 +6,34 @@ This directory runs [EBI-Metagenomics/mobilome-annotation-pipeline](https://gith
 Cluster: esrum (Slurm). Account `cbmr`, partition `standardqueue` (see
 [nextflow.config](nextflow.config)).
 
+## Reproducing this from scratch
+
+Everything needed to redo this end to end is checked into this repo — run in order:
+
+```bash
+source scripts/00_env.sh                       # modules + TMPDIR fix, every time
+bash scripts/01_download_databases.sh          # one-time: DBs + all 5 DB-level fixups
+bash scripts/02_apply_local_patches.sh         # one-time: patches/ applied to MAP itself
+bash scripts/03_run_test_participant728.sh     # the actual run (safe to re-run, -resume)
+```
+
+- [`nextflow.config`](nextflow.config) + [`my_paths.config`](my_paths.config) — Slurm/Singularity
+  setup and every resolved DB path (both required on every run, both already committed;
+  `scripts/03_run_test_participant728.sh` passes both via `-c`).
+- [`patches/`](patches/) — the one real code fix (PathoFact2's 200-line GFF-scan cap,
+  issue 7/4) as a clean `git apply`-able diff against MAP `v5.0.0`, not a full forked
+  clone — see `scripts/02_apply_local_patches.sh`'s docstring for exactly where and how
+  it needs to be applied (this one has real gotchas around Nextflow's resume cache, worth
+  reading before assuming a plain re-run picks it up).
+- Everything else broken in MAP itself (issues 1–6 in [github_issue_drafts.md](github_issue_drafts.md))
+  is a database-path or database-content problem, not a code problem — fully handled by
+  `scripts/01_download_databases.sh`, nothing to patch.
+- If you change any script here, keep it in `scripts/` and commit it — this section is the
+  contract for "how to redo this," so it needs to stay runnable, not just documented in prose.
+
+The sections below explain *why* each piece exists and go into troubleshooting depth; the
+scripts above are the actual up-to-date commands to run.
+
 ## Environment
 
 Every `nextflow run` in this directory needs these three modules loaded first
