@@ -36,15 +36,23 @@ disabled, just never turned on, so nothing to do there.
 
 ```bash
 source scripts/00_env.sh
-bash scripts/01_run_funcscan.sh          # ARG(partial)/AMP/BGC(partial)/CAZyme screening
+bash scripts/00b_apply_local_patches.sh  # one-time: patches/ applied to funcscan itself
+bash scripts/01_run_funcscan.sh          # ARG(full)/AMP/BGC(partial)/CAZyme screening
 # scripts/02_prep_map_input.sh           # TODO once step 1's real output paths are known
 # scripts/03_run_map.sh                  # TODO
 ```
 
-**Status (2026-08-25): step 1 only, not yet run.** Steps 2-3 aren't written yet — writing
-them requires seeing funcscan's actual Pyrodigal output paths and GFF format first (its docs
-don't give an exact `results/` layout precise enough to script against blindly, same lesson
-as MAP's own docs earlier in `../`). Plan once step 1 completes:
+**Status (2026-08-25): step 1 running.** Gene-calling (Pyrodigal) completed and verified for
+both samples early on — confirmed below, this is no longer an open question. ARG (all 5
+tools) and part of CAZyme/BGC/AMP have also completed; the rest is still in progress as of
+this writing (see `nohup_funcscan.log`). Hit one real bug along the way —
+`ampcombi_download.py` crashing on a NaN row in DRAMP's live TSV export — fixed via
+`patches/ampcombi_download_nan_sequence_fix.patch`, full writeup in
+[`github_issue_drafts.md`](github_issue_drafts.md) (this directory's own, separate from
+`../github_issue_drafts.md` which is MAP-specific). Steps 2-3
+aren't written yet — writing them requires seeing funcscan's actual Pyrodigal output paths
+in full (already partially inspected, see below) and confirming the rest of the run's output
+layout first, same lesson as MAP's own docs earlier in `../`. Plan once step 1 completes:
 
 1. Locate funcscan's per-sample Pyrodigal `.faa` and `.gff` in `results/01_funcscan_participant728/`.
 2. Confirm contig IDs in that GFF match the *original* `megaS121_fixed.fa`/`co728_fixed.fa`
@@ -60,16 +68,27 @@ as MAP's own docs earlier in `../`). Plan once step 1 completes:
    the same AMR/virulence/MGE calls, to confirm the shared-gene-calling handoff didn't change
    MAP's own results — only its ID scheme and its added funcscan columns.
 
-## Open questions / things to verify once funcscan actually runs
+## Verified so far
+
+- **Original contig IDs preserved, confirmed by reading the actual output** (not assumed):
+  Pyrodigal's GFF for `megaS121` uses `seqhdr="megaS121_000000000013"` — the real original
+  contig ID from the source FASTA, not a renamed scheme. Gene IDs are
+  `<original_contig_id>_<n>` (e.g. `megaS121_000000000013_1`). The whole premise of this test
+  holds.
+- Both samples' Pyrodigal (`PYRODIGAL_GFF`/`PYRODIGAL_GBK`) completed successfully — this is
+  the one step everything else in this test depends on, and it's done.
+
+## Open questions / still to verify
 
 - Does funcscan's Pyrodigal step run genome-wide (matching MAP's own Prodigal scope) or does
   it restrict to specific contig length cutoffs the way MAP's `RENAME` does (1kb/5kb/100kb)?
-  If different, gene sets between the two pipelines won't match exactly.
-- Exact GFF format/attribute style Pyrodigal produces — does it match what MAP's "PROKKA or
-  equivalent" `proteins_gff` expects closely enough, or does it need reformatting?
-- Whether skipping AMRFinderPlus/RGI/DeepARG/antiSMASH/GECCO in funcscan (while still running
-  `--run_arg_screening`/`--run_bgc_screening` overall) actually skips their DB downloads too,
-  or downloads them anyway before skipping the tool itself (wasted bandwidth/disk if so).
+  If different, gene sets between the two pipelines won't match exactly. (Contig-ID format is
+  now confirmed per above; this is specifically about *which* contigs get genes called, not
+  what they're named.)
+- Exact GFF attribute style Pyrodigal produces (seen directly, e.g. `partial=`/`start_type=`/
+  `rbs_motif=`/`conf=`/`score=` fields) — still need to confirm MAP's `proteins_gff` parser
+  ("PROKKA or equivalent") tolerates these extra attributes rather than expecting a stricter
+  Prodigal-only format.
 - DB placement: `--save_db` puts everything in this run's own `results/` first (funcscan has
   no separate `--download_dbs`-style pre-fetch mode like MAP) — move to a shared
   `scratch/funcscan_db/` afterward per this project's DB convention, same as `../mobilome_db/`.

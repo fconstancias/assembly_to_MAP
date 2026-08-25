@@ -1,21 +1,37 @@
 # assembly_to_MGE
 
 Downstream module: classify contigs/MAGs from the existing assembly+binning pipeline for
-mobile genetic elements (MGE), AMR/VF/BGC content, and plasmid typing, then combine
-everything into per-contig/per-gene tables to track AMR-on-plasmid-vs-AMR-on-MAG dynamics
-over the longitudinal sample series.
+mobile genetic elements (MGE) and plasmid typing, call AMR/AMP/BGC/CAZyme/virulence content,
+then combine everything into per-contig/per-gene tables and quantify each gene's abundance
+via mapping, to track its dynamics — e.g. AMR-on-plasmid-vs-AMR-on-MAG — over the
+longitudinal sample series. That longitudinal quantification is the actual end goal; the
+classification/annotation work above exists to answer "quantify *what*, and in what genomic
+context" before the mapping-based counting step.
 
 ## Goal
 
-- Classify contigs with geNomad (plasmid / chromosome / virus).
+**The big picture, restated 2026-08-25**: for every metagenome assembly, know — per gene —
+whether it's AMR, AMP, BGC, a CAZyme, and/or a virulence factor, and whether it sits on a
+plasmid/MGE-classified contig or not, and which MAG (if any) it belongs to. Then use mapping
+(bowtie2 coverage, per sample) to quantify each such gene's abundance, and track that
+quantification across the longitudinal series per participant. Functional/metabolic
+annotation (KEGG/COG/GO) is a later addition, not blocking the above.
+
+- Classify contigs with geNomad (plasmid / chromosome / virus) — via MAP, see below.
 - Plasmid typing on top of the geNomad plasmid calls (mob-suite, plus the existing PLSDB
-  minimap screen) — MAP (see below) detects plasmids but does not type them, so this stays
-  a separate step regardless of which classification pipeline is used.
-- AMR, virulence factor, and BGC calling.
-- Functional annotation of genes (KEGG/COG/CAZy/GO) — not covered by MAP, see Open questions.
+  minimap screen) — MAP detects plasmids but does not type them, so this stays a separate
+  step regardless of which classification pipeline is used.
+- AMR, virulence factor, and BGC calling — via MAP (see the MAP section below).
+- AMP (antimicrobial peptide) and CAZyme calling — MAP has zero coverage of either; via
+  funcscan instead (see the funcscan section / `funcscan_then_map_test/`).
+- Functional/metabolic annotation of genes (KEGG/COG/CAZy-beyond-dbCAN/GO) — not covered by
+  MAP or funcscan's current tool selection; explicitly deferred ("maybe later"), not
+  currently blocking anything else in this list. See open question 2 (eggNOG-mapper) and
+  open question 6 (mettannotator, MAG-level, also gives KEGG/eggNOG) for the two candidate
+  routes to this once it's prioritized.
 - Combine all of the above with MAG assignment and per-sample bowtie2 coverage so that, for
-  a given AMR gene, we know: is it on a plasmid-classified contig or chromosome/MAG contig,
-  which MAG/taxon, and how its coverage changes across timepoints.
+  a given AMR/AMP/BGC/CAZyme gene, we know: is it on a plasmid-classified contig or
+  chromosome/MAG contig, which MAG/taxon, and how its coverage changes across timepoints.
 - Can run on the coassembly + per-sample bowtie2 mappings, or on single assemblies + their
   own mapping — see the coassembly-vs-single-assembly discussion below. Either way,
   quantification is bowtie2-based: self-mapping (each sample's reads against its own

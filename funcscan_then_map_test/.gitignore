@@ -6,3 +6,6 @@ results/
 .nextflow.log.*
 nohup_*.log
 *_trace*.txt
+
+# NFS "silly rename" artifacts (left behind when an open file gets replaced/deleted)
+.nfs*
