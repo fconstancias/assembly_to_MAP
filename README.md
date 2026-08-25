@@ -245,12 +245,26 @@ Not run yet in this project — real-data test above was prioritized instead.
   `scripts/02_apply_local_patches.sh` has actually been run (see that script's docstring for
   the Nextflow resume-cache gotcha around it) — skipping it silently reverts to the broken
   behavior above.
-- **SignalP is IPS-only in this pipeline, but PathoFact2 itself doesn't need IPS for it**:
-  PathoFact2's own README documents a native, standalone SignalP6 integration (optional
-  install step, dedicated `SignalP/<sample>/{AMR,TOX,VF}/` output) with zero mention of
-  InterProScan anywhere. MAP instead sources the `signalP` combined-report column exclusively
-  from InterProScan (~100GB DB) rather than exposing PathoFact2's own lighter-weight SignalP6
-  step — worth asking upstream whether that's deliberate.
+- **SignalP is IPS-only in this pipeline, but PathoFact2 itself doesn't need IPS for it**
+  (not yet built — scoped plan below, to implement once current runs are validated):
+  PathoFact2's own README documents a native, standalone SignalP6 integration with zero
+  mention of InterProScan anywhere. MAP instead sources the `signalP` combined-report column
+  exclusively from InterProScan (~100GB DB, hours of runtime — real cost confirmed on `co728`:
+  IPS alone took >8h) rather than exposing PathoFact2's own path. Checked PathoFact2's actual
+  Snakemake rule (`rules/Report_VF.smk`) for the real mechanism: it runs
+  `signalp6 --fastafile ... --output_dir ... --model_dir ...` **only on proteins already
+  flagged as VF/TOX candidates** by its own ML classifier + HMM scan (pre-filtered via
+  `Filter_Proteins.py`) — not genome-wide the way IPS processes every protein. So this would
+  be far cheaper than the IPS route, and uses SignalP **6** (the version obtainable under
+  academic license today), not the legacy 4.1 IPS's hook needs.
+  **To build**: (1) a new Nextflow module running `signalp6` on the filtered candidate
+  proteins — needs its own container, SignalP6 isn't on public bioconda/galaxyproject
+  registries (licensed tool), likely a custom build similar to MAP's own `_patch1` IPS
+  container; (2) vendor or reimplement `Filter_Proteins.py`'s filtering logic as a Nextflow
+  step; (3) modify `pathofact2_integrator.py` to merge a SignalP result table into the report
+  — it currently only knows `-t {cdd,ips}`, this adds a third source, which is new logic, not
+  a fix. Real multi-hour build, not a patch — see `github_issue_drafts.md` issue 8/4 for the
+  upstream-facing version of this same plan.
 - `work/` will accumulate per-task scratch directories; safe to `nextflow clean -f` once a
   run's outputs in `results/` are confirmed good, ordinary nf-core-pipeline practice, not
   needed for the test run above given the small assemblies involved.
