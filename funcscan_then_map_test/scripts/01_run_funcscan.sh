@@ -17,7 +17,16 @@
 # point the relevant --*_db params there directly for subsequent runs, matching this
 # project's DB-directory convention (see ../CLAUDE.md).
 #
-#   source scripts/00_env.sh && bash scripts/01_run_funcscan.sh
+# Apply scripts/00b_apply_local_patches.sh first (real bug found 2026-08-25:
+# ampcombi_download.py crashes on a NaN row in DRAMP's live TSV export -- see
+# patches/ampcombi_download_nan_sequence_fix.patch).
+#
+#   source scripts/00_env.sh
+#   bash scripts/00b_apply_local_patches.sh
+#   bash scripts/01_run_funcscan.sh
+#
+# Safe to re-run: -resume (via the fixed session name below) picks up from wherever it
+# left off, same as MAP's own scripts.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."   # funcscan_then_map_test/
 
@@ -33,4 +42,4 @@ nextflow run nf-core/funcscan -r 4.0.0 \
     -c nextflow.config \
     -profile singularity \
     -with-trace funcscan_trace.txt \
-    -name funcscan_test_participant728
+    -resume funcscan_test_participant728
