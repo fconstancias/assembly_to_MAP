@@ -13,6 +13,7 @@ Everything needed to redo this end to end is checked into this repo — run in o
 ```bash
 source scripts/00_env.sh                       # modules + TMPDIR fix, every time
 bash scripts/01_download_databases.sh          # one-time: DBs + all 5 DB-level fixups
+bash scripts/01b_download_interproscan.sh      # one-time, ~17GB: needed for SanntiS BGC calls
 bash scripts/02_apply_local_patches.sh         # one-time: patches/ applied to MAP itself
 bash scripts/03_run_test_participant728.sh     # the actual run (safe to re-run, -resume)
 ```
@@ -28,6 +29,11 @@ bash scripts/03_run_test_participant728.sh     # the actual run (safe to re-run,
 - Everything else broken in MAP itself (issues 1–6 in [github_issue_drafts.md](github_issue_drafts.md))
   is a database-path or database-content problem, not a code problem — fully handled by
   `scripts/01_download_databases.sh`, nothing to patch.
+- SanntiS is enabled (`--skip_sanntis false`) as of the current `scripts/03` — needs
+  `scripts/01b_download_interproscan.sh` run first. `signalP` in the combined report still
+  won't populate: that needs the licensed SignalP hook, which has its own unresolved
+  compatibility problem (issue 9/4) — see `scripts/01b`'s docstring before assuming more DB
+  setup will fix it.
 - If you change any script here, keep it in `scripts/` and commit it — this section is the
   contract for "how to redo this," so it needs to stay runnable, not just documented in prose.
 
@@ -105,7 +111,7 @@ prediction since we're not supplying `proteins_gff`/`proteins_faa`).
 nextflow run EBI-Metagenomics/mobilome-annotation-pipeline -r v5.0.0 \
     --input samplesheet_participant728_test.csv \
     --outdir results/01_map_test_participant728 \
-    --skip_sanntis true \
+    --skip_sanntis false \
     -c nextflow.config \
     -c my_paths.config \
     -profile singularity \
@@ -113,11 +119,14 @@ nextflow run EBI-Metagenomics/mobilome-annotation-pipeline -r v5.0.0 \
     -name map_test_participant728
 ```
 
-`--skip_sanntis true` is required here since InterProScan (`params.interproscan_db`) wasn't
-downloaded (see step 1) — without it, or without skipping SanntiS, MAP crashes immediately
-with `Argument of file() function cannot be null` (`workflows/mobilomeannotation.nf:318`).
-Every other DB path SanntiS/BGC/AMR/PathoFact2 need is covered by `my_paths.config`;
-InterProScan is the one MAP will still try to use unless told not to.
+**History**: the first pass through this test used `--skip_sanntis true`, since InterProScan
+(`params.interproscan_db`) wasn't downloaded yet — without it, or without skipping SanntiS,
+MAP crashes immediately with `Argument of file() function cannot be null`
+(`workflows/mobilomeannotation.nf:318`). Core IPS 5.76-107.0 was downloaded afterward
+(`scripts/01b_download_interproscan.sh`), so `--skip_sanntis false` now works and gives real
+SanntiS BGC calls. `signalP` in the combined report is still `-` regardless — that needs the
+licensed SignalP hook, which has its own unresolved compatibility problem (issue 9/4,
+`scripts/01b`'s docstring).
 
 Purpose: compare geNomad/MGE/AMR/VF/BGC calls for the same participant's data assembled two
 ways, and sanity-check the pipeline end to end on real (if small-ish) data before committing
