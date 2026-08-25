@@ -216,3 +216,16 @@ assembly_to_MGE/
 5. Build the glue around MAP (mob-suite, eggNOG, coverage, integration) as a new Snakemake
    module matching `../binning_smk/` conventions, or a lighter script-based workflow that
    just wraps/calls the MAP Nextflow run as one step?
+6. [mettannotator](https://github.com/EBI-Metagenomics/mettannotator) as a MAG-level
+   complement to MAP, for a future full-cohort run: it needs one genome/MAG per input row
+   (with a TaxID), not a raw multi-organism coassembly, so it can't replace MAP's
+   whole-assembly contig-level view — but run separately on our already-dereplicated MAGs
+   (`dRep` + GTDB-Tk taxonomy → TaxID), it's a strong answer to open question 2/the
+   KEGG/COG/CAZy functional-annotation gap: eggNOG-mapper, UniFIRE, DefenseFinder,
+   Pseudofinder, run_dbCAN (CAZy), CRISPRCasFinder, tRNAscan-SE/Rfam, on top of its own
+   InterProScan/AMRFinderPlus/antiSMASH/GECCO/SanntiS run. Not worth chasing its documented
+   "annotation manifest" interoperability with MAP (reusing its precomputed AMR/BGC/IPS
+   output inside MAP) — that needs reconciling mettannotator's per-MAG contig IDs against
+   MAP's own `contig_N` renaming, the same class of join problem as `contigID.map` above,
+   for a payoff that's just skipping some redundant (and cheap) compute. Simpler to run both
+   independently and join downstream through `bin_map.tsv`/GTDB-Tk.
