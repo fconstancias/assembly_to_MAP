@@ -3,8 +3,9 @@
 # with --skip_sanntis false (real SanntiS BGC predictions). Not needed for the base test
 # run in scripts/03 with --skip_sanntis true.
 #
-# Does NOT set up the licensed SignalP hook (see below) -- --interpro_licensed_software
-# stays unset/false. SanntiS itself only needs the core `data/` databases.
+# Does NOT set up the licensed SignalP hook (see below) -- getting that also requires
+# --interpro_licensed_software true in my_paths.config. SanntiS itself only needs the core
+# `data/` databases handled by this script.
 #
 #   source scripts/00_env.sh && bash scripts/01b_download_interproscan.sh
 set -euo pipefail
@@ -31,19 +32,23 @@ fi
 
 echo
 echo "=================================================================================="
-echo "SignalP (licensed, optional -- for --interpro_licensed_software true later):"
+echo "SignalP (licensed, optional -- for the signalP column in the combined report):"
 echo
 echo "MAP's patched container (microbiome-informatics/interproscan:${IPS_VERSION}_patch1)"
-echo "hardwires its SignalP hook to legacy SignalP 4.1 (Perl), confirmed by inspecting"
-echo "the container's interproscan.properties directly:"
-echo "  binary.signalp.path=/opt/interproscan/licensed/signalp/signalp"
-echo "  signalp.perl.library.dir=/opt/interproscan/licensed/signalp/lib"
+echo "needs SignalP **4.1** specifically (legacy Perl), NOT SignalP 6 -- despite docs/usage.md"
+echo "linking to the SignalP 6 page (see github_issue_drafts.md issue 9/4). Confirmed working"
+echo "end to end with real SignalP 4.1:"
 echo
-echo "SignalP 6 (the only version obtainable under academic license today -- Python/PyTorch,"
-echo "not Perl) does NOT drop in here as-is; see github_issue_drafts.md issue 9/4. If/when"
-echo "SignalP 4.1 is obtained separately, its extracted contents need to land at:"
-echo "  $TARGET/licensed/signalp/signalp   (the executable)"
-echo "  $TARGET/licensed/signalp/lib/      (its perl library dir)"
-echo "then set interpro_licensed_software = true in my_paths.config. Not done yet -- this"
-echo "script only sets up the core (unlicensed) data/ used by SanntiS."
+echo "1. Get 'signalp-4.1g.Linux.tar.gz' from DTU's academic download portal"
+echo "   (https://services.healthtech.dtu.dk/services/SignalP-4.1/) -- generates a personal,"
+echo "   one-time download link; can't be scripted/hardcoded here."
+echo "2. tar xzf signalp-4.1g.Linux.tar.gz"
+echo "3. mv signalp-4.1 $TARGET/licensed/signalp"
+echo "   (its signalp-4.1/{signalp,lib/} become licensed/signalp/{signalp,lib/} directly --"
+echo "   exact match for interproscan.properties' binary.signalp.path /"
+echo "   signalp.perl.library.dir, no shim/edit needed)"
+echo "4. Set interpro_licensed_software = true in my_paths.config"
+echo
+echo "Not done by this script (needs the manual DTU download in step 1) -- this script only"
+echo "sets up the core (unlicensed) data/ used by SanntiS."
 echo "=================================================================================="

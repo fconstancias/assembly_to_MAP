@@ -218,13 +218,13 @@ So the DB `--download_dbs` produces and the DB `--rgi_db` requires are two diffe
 
 ---
 
-## Issue 9/4 — MAP's patched InterProScan container's SignalP hook is wired for SignalP 4.1, but only SignalP 6 is obtainable under academic license today
+## Issue 9/4 — low severity, docs only: `--interpro_licensed_software true` needs SignalP **4.1**, but the docs link to the SignalP **6** download page
 
-**Title:** `interproscan.properties` in `microbiome-informatics/interproscan:5.76-107.0_patch1` hardwires `binary.signalp.path`/`signalp.perl.library.dir` to a legacy Perl SignalP 4.1 layout — incompatible with SignalP 6, the only version DTU still distributes under academic license
+**Title:** `docs/usage.md` links to SignalP 6's download page for `--interpro_licensed_software`, but MAP's patched InterProScan container actually requires the legacy SignalP 4.1 distribution
 
 **Body:**
 
-`--interpro_licensed_software true` is documented (`docs/usage.md`) as the flag that adds SignalP into MAP's internal InterProScan run. Inspecting the actual patched container MAP uses (`quay.io/microbiome-informatics/interproscan:5.76-107.0_patch1`) directly:
+`docs/usage.md` says: *"SignalP is added automatically when `--interpro_licensed_software true` is set"*, linking to <https://services.healthtech.dtu.dk/services/SignalP-6.0/>. Inspecting the actual patched container MAP uses (`quay.io/microbiome-informatics/interproscan:5.76-107.0_patch1`) directly:
 
 ```
 $ singularity exec ips_container.img grep -i signalp /opt/interproscan/interproscan.properties
@@ -232,15 +232,19 @@ binary.signalp.path=/opt/interproscan/licensed/signalp/signalp
 signalp.perl.library.dir=/opt/interproscan/licensed/signalp/lib
 ```
 
-This is InterProScan's legacy **SignalP 4.1** integration convention: a Perl script named `signalp` plus a `lib/` directory of Perl modules. But the SignalP obtainable today from [DTU's academic download portal](https://services.healthtech.dtu.dk/services/SignalP-6.0/) is **SignalP 6** — a `pip install`-able Python package built on PyTorch (`signalp6_fast/signalp-6-package/{setup.py,signalp/predict.py,models/*.pt}`), with a completely different CLI and I/O format. It is not drop-in compatible with what `interproscan.properties` expects, and the mismatch isn't superficial (different language, different runtime, different invocation) — a correct fix means either (a) a translation shim at `licensed/signalp/signalp` that reimplements the expected legacy interface on top of SignalP 6 and produces output IPS's Perl integration code can still parse, or (b) updating the container's InterProScan build/config to call SignalP 6 the way IPS itself does in its newer releases (if any), rather than the SignalP-4.1-era hook. Neither is a config change on the pipeline-user side.
+...and `workflows/mobilomeannotation.nf`'s `containerOptions` for `INTERPROSCAN`:
 
-Checked other public EBI-Metagenomics pipelines for a working reference (e.g. `mettannotator`, which also runs InterProScan) — its `INTERPROSCAN` module doesn't wire in licensed software at all (`modules/local/interproscan.nf` only mounts `${interproscan_db}/data`), so there's no existing example anywhere in EBI's public pipelines of this hook actually working end-to-end.
+```groovy
+containerArgs << "${mountArg} ${licensedSoftwarePath}/signalp:/usr/opt/www/pub/CBS/services/SignalP-4.1/signalp-4.1"
+```
 
-**Reproduce:** download core InterProScan 5.76-107.0 data (`--download_dbs` doesn't cover this — fully manual, see `docs/usage.md`), obtain SignalP 6 under academic license, set `--interpro_licensed_software true` with `licensed/signalp/` populated from the SignalP 6 tarball, run any sample. Either it fails outright (wrong binary name/interface) or — worse — appears to run but silently produces no/wrong SignalP calls, since the Perl-vs-Python mismatch isn't something IPS's own error handling is likely to catch cleanly.
+That hardcoded target path (`SignalP-4.1/signalp-4.1`) is the giveaway — and confirmed directly: SignalP 4.1's own `signalp` script hardcodes `$ENV{SIGNALP} = '/usr/opt/www/pub/CBS/services/SignalP-4.1/signalp-4.1'` internally, and this bind mount exists specifically to satisfy that hardcoded legacy path. **This is correct, working engineering, not a bug** — confirmed end to end: downloaded `signalp-4.1g.Linux.tar.gz` from DTU's academic portal (SignalP 4.1 is still available, just not the version linked from `docs/usage.md`), extracted its `signalp-4.1/{signalp,lib/}` directly into `<interproscan_db>/licensed/signalp/{signalp,lib/}` — an exact match for the two `interproscan.properties` paths above, no shim or modification needed — and the pipeline picked it up correctly with `--interpro_licensed_software true`.
 
-**Suggested fix:** update the `_patch1` container's SignalP integration to target SignalP 6 (matching what's actually available under license now), or clearly document in `docs/usage.md` that `--interpro_licensed_software true` currently requires the no-longer-generally-distributed SignalP 4.1, not the current SignalP 6.
+(For the record: SignalP 6, the version the docs link to, is a `pip`-installable Python/PyTorch package with a completely different CLI — genuinely not compatible with this hook. That was our first hypothesis before actually trying SignalP 4.1, and it was wrong; worth noting in case anyone else goes down that path first.)
 
-**Workaround used:** none — deliberately left `--interpro_licensed_software` unset/false. SanntiS BGC prediction itself only needs the core (unlicensed) `data/` databases, so real BGC results are still obtainable; only the `signalP` combined-report column is affected.
+**Suggested fix:** update the link/wording in `docs/usage.md` to point at SignalP 4.1 (or whichever specific version the `_patch1` container's `interproscan.properties` actually expects) rather than the current SignalP 6 page, so users don't have to reverse-engineer the container to discover the version mismatch. Everything else about the feature works as designed.
+
+**Workaround used:** none needed — obtained the correct SignalP version directly, no patch required.
 
 ---
 

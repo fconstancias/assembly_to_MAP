@@ -30,9 +30,10 @@ bash scripts/03_run_test_participant728.sh     # the actual run (safe to re-run,
   is a database-path or database-content problem, not a code problem — fully handled by
   `scripts/01_download_databases.sh`, nothing to patch.
 - SanntiS is enabled (`--skip_sanntis false`) as of the current `scripts/03` — needs
-  `scripts/01b_download_interproscan.sh` run first. `signalP` in the combined report still
-  won't populate: that needs the licensed SignalP hook, which has its own unresolved
-  compatibility problem (issue 9/4) — see `scripts/01b`'s docstring before assuming more DB
+  `scripts/01b_download_interproscan.sh` run first. The `signalP` combined-report column
+  additionally needs `--interpro_licensed_software true` plus a real SignalP **4.1**
+  installation (not 6, despite MAP's own docs linking to the 6 page — issue 9/4) — see
+  `scripts/01b`'s docstring for the exact, confirmed-working setup before assuming more DB
   setup will fix it.
 - If you change any script here, keep it in `scripts/` and commit it — this section is the
   contract for "how to redo this," so it needs to stay runnable, not just documented in prose.
@@ -124,9 +125,10 @@ nextflow run EBI-Metagenomics/mobilome-annotation-pipeline -r v5.0.0 \
 MAP crashes immediately with `Argument of file() function cannot be null`
 (`workflows/mobilomeannotation.nf:318`). Core IPS 5.76-107.0 was downloaded afterward
 (`scripts/01b_download_interproscan.sh`), so `--skip_sanntis false` now works and gives real
-SanntiS BGC calls. `signalP` in the combined report is still `-` regardless — that needs the
-licensed SignalP hook, which has its own unresolved compatibility problem (issue 9/4,
-`scripts/01b`'s docstring).
+SanntiS BGC calls. `signalP` in the combined report additionally needs a real SignalP 4.1
+installation plus `--interpro_licensed_software true` (see `scripts/01b`'s docstring and
+issue 9/4 — MAP's own docs link to SignalP 6, which is not what the container actually
+expects; confirmed working once the correct version was obtained).
 
 Purpose: compare geNomad/MGE/AMR/VF/BGC calls for the same participant's data assembled two
 ways, and sanity-check the pipeline end to end on real (if small-ish) data before committing
