@@ -229,3 +229,23 @@ assembly_to_MGE/
    MAP's own `contig_N` renaming, the same class of join problem as `contigID.map` above,
    for a payoff that's just skipping some redundant (and cheap) compute. Simpler to run both
    independently and join downstream through `bin_map.tsv`/GTDB-Tk.
+7. [nf-core/funcscan](https://github.com/nf-core/funcscan) (checked at tag `4.0.0`) as a
+   contig-level complement to MAP, unlike mettannotator above — it runs directly on the same
+   assembly MAP does, not per-MAG, so no ID-reconciliation problem the way mettannotator has
+   one. Confirmed via its schema/docs: AMR (ABRicate, AMRFinderPlus, fARGene, RGI, DeepARG +
+   argNorm ontology normalization), AMP prediction (ampir, Macrel, AMPlify, HMMER), and BGC
+   (antiSMASH, BiG-SLiCE, DeepBGC, GECCO, HMMER) — but no MGE/plasmid classification and no
+   virulence/toxin prediction at all, so it doesn't replace MAP's core purpose here, only
+   overlaps part of it. The overlap is avoidable, not just tolerable: funcscan has a skip
+   flag per individual tool (`arg_skip_amrfinderplus`/`arg_skip_rgi`/`arg_skip_deeparg`,
+   `bgc_skip_antismash`/`bgc_skip_gecco`), and its samplesheet accepts pre-called genes
+   (`protein`/`gbk`/`gff` columns) which skips its own Prodigal/Prokka/Bakta step entirely —
+   so it can consume MAP's own renamed contigs + Prodigal proteins directly, landing its
+   output on the *same* `contig_id`/`protein_id` MAP already uses, no separate join needed.
+   Concretely: keep AMRFinderPlus/RGI/DeepARG and antiSMASH/GECCO on MAP only (`bgc_skip_*`/
+   `arg_skip_*` off for those in funcscan — antiSMASH alone ran ~3h on `co728`, not worth
+   doubling); run funcscan only for what MAP has zero coverage of — full AMP screening, CAZy
+   (dbCAN), plus ABRicate/fARGene/argNorm as a second, ontology-normalized AMR opinion; feed
+   it MAP's Prodigal `.faa`/`.gff` (needs converting to `.gbk` too, since funcscan's
+   pre-annotated mode wants all three — a real but small conversion step, e.g. via
+   Biopython's `SeqIO`).
