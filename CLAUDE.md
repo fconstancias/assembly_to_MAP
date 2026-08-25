@@ -216,36 +216,40 @@ assembly_to_MGE/
 5. Build the glue around MAP (mob-suite, eggNOG, coverage, integration) as a new Snakemake
    module matching `../binning_smk/` conventions, or a lighter script-based workflow that
    just wraps/calls the MAP Nextflow run as one step?
-6. [mettannotator](https://github.com/EBI-Metagenomics/mettannotator) as a MAG-level
-   complement to MAP, for a future full-cohort run: it needs one genome/MAG per input row
-   (with a TaxID), not a raw multi-organism coassembly, so it can't replace MAP's
-   whole-assembly contig-level view — but run separately on our already-dereplicated MAGs
-   (`dRep` + GTDB-Tk taxonomy → TaxID), it's a strong answer to open question 2/the
-   KEGG/COG/CAZy functional-annotation gap: eggNOG-mapper, UniFIRE, DefenseFinder,
-   Pseudofinder, run_dbCAN (CAZy), CRISPRCasFinder, tRNAscan-SE/Rfam, on top of its own
-   InterProScan/AMRFinderPlus/antiSMASH/GECCO/SanntiS run. Not worth chasing its documented
-   "annotation manifest" interoperability with MAP (reusing its precomputed AMR/BGC/IPS
-   output inside MAP) — that needs reconciling mettannotator's per-MAG contig IDs against
-   MAP's own `contig_N` renaming, the same class of join problem as `contigID.map` above,
-   for a payoff that's just skipping some redundant (and cheap) compute. Simpler to run both
-   independently and join downstream through `bin_map.tsv`/GTDB-Tk.
-7. [nf-core/funcscan](https://github.com/nf-core/funcscan) (checked at tag `4.0.0`) as a
-   contig-level complement to MAP, unlike mettannotator above — it runs directly on the same
-   assembly MAP does, not per-MAG, so no ID-reconciliation problem the way mettannotator has
-   one. Confirmed via its schema/docs: AMR (ABRicate, AMRFinderPlus, fARGene, RGI, DeepARG +
-   argNorm ontology normalization), AMP prediction (ampir, Macrel, AMPlify, HMMER), and BGC
-   (antiSMASH, BiG-SLiCE, DeepBGC, GECCO, HMMER) — but no MGE/plasmid classification and no
-   virulence/toxin prediction at all, so it doesn't replace MAP's core purpose here, only
-   overlaps part of it. The overlap is avoidable, not just tolerable: funcscan has a skip
-   flag per individual tool (`arg_skip_amrfinderplus`/`arg_skip_rgi`/`arg_skip_deeparg`,
-   `bgc_skip_antismash`/`bgc_skip_gecco`), and its samplesheet accepts pre-called genes
-   (`protein`/`gbk`/`gff` columns) which skips its own Prodigal/Prokka/Bakta step entirely —
-   so it can consume MAP's own renamed contigs + Prodigal proteins directly, landing its
-   output on the *same* `contig_id`/`protein_id` MAP already uses, no separate join needed.
-   Concretely: keep AMRFinderPlus/RGI/DeepARG and antiSMASH/GECCO on MAP only (`bgc_skip_*`/
-   `arg_skip_*` off for those in funcscan — antiSMASH alone ran ~3h on `co728`, not worth
-   doubling); run funcscan only for what MAP has zero coverage of — full AMP screening, CAZy
-   (dbCAN), plus ABRicate/fARGene/argNorm as a second, ontology-normalized AMR opinion; feed
-   it MAP's Prodigal `.faa`/`.gff` (needs converting to `.gbk` too, since funcscan's
-   pre-annotated mode wants all three — a real but small conversion step, e.g. via
-   Biopython's `SeqIO`).
+6. ~~mettannotator~~ — considered as a MAG-level functional-annotation complement (needs one
+   genome/MAG per input row with a TaxID, not a raw coassembly, so it would run separately on
+   our dereplicated MAGs). **Decided against (2026-08-25)**: going with MAP + funcscan
+   instead (item 7) — kept here only as a record of why it was considered and dropped, not a
+   live option.
+
+7. **Decided (2026-08-25): MAP + [nf-core/funcscan](https://github.com/nf-core/funcscan)**
+   (checked at tag `4.0.0`), run as a **shared-gene-calling pair**, not "one feeds the other."
+   Call genes once, up front, on the raw assembly — Prodigal or Pyrodigal specifically, not
+   Prokka (which has its own history of truncating/renaming contig headers via its 20-char
+   locus-tag limit, which would reintroduce exactly the ID problem this design avoids) — then
+   supply that same `.faa`/`.gff` to both pipelines: MAP's `proteins_gff`/`proteins_faa`
+   samplesheet columns, and funcscan's `protein`/`gbk`/`gff` columns (needs a GFF→GenBank
+   conversion too, e.g. via Biopython's `SeqIO` — funcscan's pre-annotated mode wants all
+   three). Neither pipeline repeats gene-calling.
+
+   This also fixes contig-ID traceability, not just avoids double compute — confirmed by
+   reading `workflows/mobilomeannotation.nf` directly, not just the docs. `RENAME` always
+   runs unconditionally (`assembly_filter_rename.py`, contig→`contig_N`), and MAP's own MGE
+   detection (geNomad/ICEfinder2/ISEScan/IntegronFinder — its actual unique value) always
+   operates on those internally-renamed, length-filtered contigs; that part can't be bypassed.
+   But when `proteins_gff`/`proteins_faa` are supplied, `AMR_ANNOTATION`/`BGC_ANNOTATION`/
+   `PATHOFACT2` are wired to the **original, non-renamed assembly** instead
+   (`tuple(meta, user_gff ? orig_assembly : contigs_1kb)` in the BGC input construction) — so
+   AMR/BGC/virulence calls come back on our original contig IDs directly. The final
+   `COMBINEREPORTER`/`GFF_MAPPING_COMPRESSION_AND_INDEXING` step then does the renamed-ID ↔
+   original-ID join **internally**, via the same `contigID.map` RENAME always produces —
+   MAP already contains the exact reconciliation logic the `contigID.map` README section says
+   we'd otherwise have to build ourselves. Net effect: `sample_combined_report.tsv`'s
+   `contig_id` column comes out as our original contig names, with `mge_type` correctly
+   populated from the internally-renamed MGE-detection side, with zero manual translation.
+
+   Per-tool split once this is wired up: AMRFinderPlus/RGI/DeepARG and antiSMASH/GECCO stay
+   MAP-only (`arg_skip_amrfinderplus`/`arg_skip_rgi`/`arg_skip_deeparg`,
+   `bgc_skip_antismash`/`bgc_skip_gecco` in funcscan — antiSMASH alone ran ~3h on `co728`, not
+   worth doubling); funcscan runs only what MAP has zero coverage of — full AMP screening,
+   CAZy (dbCAN), plus ABRicate/fARGene/argNorm as a second, ontology-normalized AMR opinion.

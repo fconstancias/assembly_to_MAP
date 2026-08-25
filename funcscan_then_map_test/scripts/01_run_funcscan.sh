@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Run funcscan restricted to the tools MAP doesn't cover (see ../CLAUDE.md open question 7):
+#   ARG : ABRicate + fARGene + argNorm      (AMRFinderPlus/RGI/DeepARG skipped -- MAP's job)
+#   AMP : ampir + Macrel + AMPlify           (MAP has zero AMP coverage)
+#   BGC : DeepBGC                            (antiSMASH/GECCO skipped -- MAP's job)
+#   CAZyme: dbCAN                            (MAP has zero CAZyme coverage)
+#
+# Gene calling: pyrodigal (funcscan's own default) -- NOT prokka, which truncates/renames
+# contig headers (its 20-char locus-tag limit) and would break the original-contig-ID
+# handoff to MAP this whole test exists to validate. This run's own Pyrodigal output
+# (protein FASTA + GFF) becomes MAP's proteins_gff/proteins_faa input in step 2 -- see
+# scripts/02_prep_map_input.sh once funcscan's actual output paths are confirmed.
+#
+# First run: --save_db persists auto-downloaded databases into the run's own results dir
+# (funcscan has no separate --download_dbs mode like MAP -- it downloads inline, on demand,
+# per docs/usage.md). Move them to a shared scratch/funcscan_db/ location afterward and
+# point the relevant --*_db params there directly for subsequent runs, matching this
+# project's DB-directory convention (see ../CLAUDE.md).
+#
+#   source scripts/00_env.sh && bash scripts/01_run_funcscan.sh
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."   # funcscan_then_map_test/
+
+nextflow run nf-core/funcscan -r 4.0.0 \
+    --input samplesheet_funcscan_participant728.csv \
+    --outdir results/01_funcscan_participant728 \
+    --annotation_tool pyrodigal \
+    --run_arg_screening --arg_skip_amrfinderplus --arg_skip_rgi --arg_skip_deeparg \
+    --run_amp_screening \
+    --run_bgc_screening --bgc_skip_antismash --bgc_skip_gecco \
+    --run_cazyme_screening \
+    --save_db \
+    -c nextflow.config \
+    -profile singularity \
+    -with-trace funcscan_trace.txt \
+    -name funcscan_test_participant728
