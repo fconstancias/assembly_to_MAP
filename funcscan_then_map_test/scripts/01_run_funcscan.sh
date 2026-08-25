@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# Run funcscan restricted to the tools MAP doesn't cover (see ../CLAUDE.md open question 7):
-#   ARG : ABRicate + fARGene + argNorm      (AMRFinderPlus/RGI/DeepARG skipped -- MAP's job)
+# Run funcscan (see ../CLAUDE.md open question 7):
+#   ARG : ALL 5 tools -- ABRicate, AMRFinderPlus, fARGene, RGI, DeepARG + argNorm.
+#     Decided 2026-08-25 to run the full set here, not just ABRicate/fARGene, even though
+#     AMRFinderPlus/RGI/DeepARG duplicate what MAP also runs -- the payoff is ONE
+#     hAMRonization table covering all 5 ARG tools in a single normalized schema, which
+#     MAP's own combined_report.tsv doesn't give (it just lists each hit with a bare
+#     amr_tool field, not a harmonized cross-tool report). These 3 tools are individually
+#     cheap (unlike antiSMASH, which is why BGC below still skips it), so the redundant
+#     compute is an acceptable trade for that.
 #   AMP : ampir + Macrel + AMPlify           (MAP has zero AMP coverage)
-#   BGC : DeepBGC                            (antiSMASH/GECCO skipped -- MAP's job)
+#   BGC : DeepBGC                            (antiSMASH/GECCO still skipped -- MAP's job, antiSMASH alone ran ~3h on co728)
 #   CAZyme: dbCAN                            (MAP has zero CAZyme coverage)
 #
 # Gene calling: pyrodigal (funcscan's own default) -- NOT prokka, which truncates/renames
@@ -34,7 +41,7 @@ nextflow run nf-core/funcscan -r 4.0.0 \
     --input samplesheet_funcscan_participant728.csv \
     --outdir results/01_funcscan_participant728 \
     --annotation_tool pyrodigal \
-    --run_arg_screening --arg_skip_amrfinderplus --arg_skip_rgi --arg_skip_deeparg \
+    --run_arg_screening \
     --run_amp_screening \
     --run_bgc_screening --bgc_skip_antismash --bgc_skip_gecco \
     --run_cazyme_screening \

@@ -22,9 +22,8 @@ original contig/gene IDs with no translation layer to build ourselves.
 | Category | Runs via | Why |
 |---|---|---|
 | MGE, plasmid/virus, virulence | MAP only | funcscan has no equivalent at all |
-| AMR: AMRFinderPlus, RGI, DeepARG | MAP only | `arg_skip_*` in funcscan |
 | BGC: antiSMASH, GECCO | MAP only | `bgc_skip_*` in funcscan — antiSMASH alone ran ~3h on `co728` in `../`, not worth doubling |
-| AMR: ABRicate, fARGene + argNorm | funcscan only | zero overlap; argNorm gives ontology-normalized (ARO) calls MAP doesn't |
+| AMR: **all 5** (ABRicate, AMRFinderPlus, fARGene, RGI, DeepARG) + argNorm | **both** — funcscan (all 5) *and* MAP (AMRFinderPlus/RGI/DeepARG) | decided 2026-08-25: run the full ARG set in funcscan too, even though 3 of the 5 duplicate MAP, specifically to get **one hAMRonization table covering all 5 tools in a single normalized schema** — MAP's own `combined_report.tsv` only lists each hit with a bare `amr_tool` field, no cross-tool harmonization. These 3 tools are individually cheap (unlike antiSMASH), so the redundant compute is an acceptable trade for that. |
 | BGC: DeepBGC | funcscan only | zero overlap tool |
 | AMP screening (ampir, Macrel, AMPlify) | funcscan only | MAP has zero AMP coverage |
 | CAZymes (dbCAN) | funcscan only | MAP has zero CAZyme coverage |

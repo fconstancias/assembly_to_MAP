@@ -248,8 +248,13 @@ assembly_to_MGE/
    `contig_id` column comes out as our original contig names, with `mge_type` correctly
    populated from the internally-renamed MGE-detection side, with zero manual translation.
 
-   Per-tool split once this is wired up: AMRFinderPlus/RGI/DeepARG and antiSMASH/GECCO stay
-   MAP-only (`arg_skip_amrfinderplus`/`arg_skip_rgi`/`arg_skip_deeparg`,
-   `bgc_skip_antismash`/`bgc_skip_gecco` in funcscan — antiSMASH alone ran ~3h on `co728`, not
-   worth doubling); funcscan runs only what MAP has zero coverage of — full AMP screening,
-   CAZy (dbCAN), plus ABRicate/fARGene/argNorm as a second, ontology-normalized AMR opinion.
+   Per-tool split, revised 2026-08-25: antiSMASH/GECCO stay MAP-only (`bgc_skip_antismash`/
+   `bgc_skip_gecco` in funcscan — antiSMASH alone ran ~3h on `co728`, not worth doubling).
+   ARG is the exception to "avoid overlap": run the **full 5-tool ARG set inside funcscan**
+   (ABRicate, AMRFinderPlus, fARGene, RGI, DeepARG + argNorm) even though 3 of those 5
+   duplicate MAP, specifically to get funcscan's own `hAMRonization` step to produce **one
+   normalized table covering all 5 tools** — MAP's `combined_report.tsv` only carries a bare
+   `amr_tool` field per hit, no cross-tool harmonization. AMRFinderPlus/RGI/DeepARG are
+   individually cheap (unlike antiSMASH), so the redundant compute is a fine trade for that.
+   funcscan otherwise runs only what MAP has zero coverage of: full AMP screening, CAZy
+   (dbCAN), DeepBGC.
