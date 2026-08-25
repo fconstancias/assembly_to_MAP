@@ -88,11 +88,14 @@ correctly regardless (verified directly on disk), so [my_paths.config](my_paths.
 hand-built from the actual `scratch/mobilome_db/` layout instead and **is committed here**
 (unlike a normal `--download_dbs` run, where it's machine/run-specific scratch output you'd
 regenerate yourself). Pass it with `-c my_paths.config` on every subsequent run. InterProScan
-(~100 GB) is intentionally not downloaded — only needed for SanntiS BGC prediction, MAP runs
-IPS internally when needed and the pipeline works fine without a pre-fetched copy.
+(~100 GB) is handled separately (`scripts/01b_download_interproscan.sh`, see step 2) since
+`--download_dbs` never touches it at all — only needed once SanntiS/`signalP` are wanted, not
+for the base mobilome/AMR/virulence run.
 
-**Status: done (2026-08-24)** — `scratch/mobilome_db/` has all 10 databases; two needed
-manual intervention around upstream MAP bugs (see troubleshooting below).
+**Status: done (2026-08-25)** — `scratch/mobilome_db/` has all 10 `--download_dbs` databases
+(two needed manual intervention around upstream MAP bugs, see troubleshooting below) plus
+InterProScan 5.76-107.0 (core `data/` + a real licensed SignalP 4.1 install) added afterward
+for the SanntiS/`signalP` run.
 
 ## 2. Test run (first trial): one single assembly + its covering coassembly
 
@@ -224,20 +227,24 @@ Not run yet in this project — real-data test above was prioritized instead.
   cached RGI container and assembling the result into
   `scratch/mobilome_db/rgi/card_database_processed/`, pointed at by `rgi_db` instead of the
   raw `card_dir`.
-- **PathoFact2's final virulence GFF is silently empty for real data (high-severity, unresolved)**:
-  `pathofact2_integrator.py`'s GFF-validity check (`_has_gff_record_9cols`) only scans the
+- **PathoFact2's final virulence GFF was silently empty for real data (high-severity, FIXED
+  locally — apply `scripts/02_apply_local_patches.sh` or this bites you)**:
+  `pathofact2_integrator.py`'s GFF-validity check (`_has_gff_record_9cols`) only scanned the
   first 200 lines of the input GFF. Since every `##sequence-region` pragma line (one per
   contig) is written before any feature line, any assembly with >~200 contigs — i.e.
   essentially every real single-sample or coassembly dataset, confirmed on both `megaS121`
-  (10.7k contigs) and `co728` (46.4k contigs) — has its first real feature line past line 200,
-  so the check always (wrongly) concludes the GFF has zero features. The task "succeeds" (exit
-  0, `optional: true` output) and silently produces no `prediction/virulence/*_pathofact2.gff`
+  (10.7k contigs) and `co728` (46.4k contigs) — had its first real feature line past line 200,
+  so the check always (wrongly) concluded the GFF had zero features. The task "succeeded" (exit
+  0, `optional: true` output) and silently produced no `prediction/virulence/*_pathofact2.gff`
   and no `vf`/`tox_prob` contributions to `sample_combined_report.tsv`, even though
-  `PATHOFACT2_TOXINS`/`PATHOFACT2_VIRULENCE` (the actual ML predictions) run and succeed —
-  the predictions exist but never get merged in. No workaround applied yet; needs an upstream
-  fix (drop or raise the 200-line cap in `pathofact2_integrator.py`). **Bottom line: treat
-  PathoFact2 virulence/toxin integration as broken for real data on this pipeline version
-  until this is fixed.**
+  `PATHOFACT2_TOXINS`/`PATHOFACT2_VIRULENCE` (the actual ML predictions) ran and succeeded —
+  the predictions existed but never got merged in. **Fixed** via [`patches/pathofact2_integrator_200line_cap_fix.patch`](patches/)
+  (drops the 200-line cap; short-circuits on first match, so it's still cheap) — confirmed
+  end to end: `co728_combined_report.tsv` went from 0 rows with a real `pathofact2_vf_prob`
+  value to 52,413. This patch is *not* part of upstream MAP — it only takes effect if
+  `scripts/02_apply_local_patches.sh` has actually been run (see that script's docstring for
+  the Nextflow resume-cache gotcha around it) — skipping it silently reverts to the broken
+  behavior above.
 - **SignalP is IPS-only in this pipeline, but PathoFact2 itself doesn't need IPS for it**:
   PathoFact2's own README documents a native, standalone SignalP6 integration (optional
   install step, dedicated `SignalP/<sample>/{AMR,TOX,VF}/` output) with zero mention of
