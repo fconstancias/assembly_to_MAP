@@ -17,6 +17,20 @@ plasmid/MGE-classified contig or not, and which MAG (if any) it belongs to. Then
 quantification across the longitudinal series per participant. Functional/metabolic
 annotation (KEGG/COG/GO) is a later addition, not blocking the above.
 
+**Strategy**: use existing, maintained community pipelines for the classification/annotation
+side rather than wiring individual tools (geNomad, AMRFinderPlus, antiSMASH, dbCAN, ...)
+together ourselves — that's real, already-solved engineering (container builds, DB
+management, tool-specific edge cases) not worth re-doing from scratch. No single existing
+pipeline covers everything on the list above, though: MAP does MGE/plasmid/virulence/AMR/BGC
+but has zero AMP or CAZyme coverage; funcscan does AMR/AMP/BGC/CAZyme but zero MGE/plasmid/
+virulence coverage. Hence combining the two (`funcscan_then_map_test/`) rather than picking
+one — each covers what the other doesn't, and the overlap between them (AMR, part of BGC) is
+small enough to either skip on one side or deliberately keep on both (see the ARG decision
+below). This also means: neither pipeline was fully trustworthy out of the box — real bugs
+were found and fixed in both (6 in MAP, 1 in funcscan so far, see the respective
+`github_issue_drafts.md`), which is the normal cost of adopting actively-developed pipelines
+rather than a reason to avoid them.
+
 - Classify contigs with geNomad (plasmid / chromosome / virus) — via MAP, see below.
 - Plasmid typing on top of the geNomad plasmid calls (mob-suite, plus the existing PLSDB
   minimap screen) — MAP detects plasmids but does not type them, so this stays a separate
